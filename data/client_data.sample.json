@@ -1,0 +1,35 @@
+{
+  "client_name": "Northwind Family Ministries (Sample)",
+  "assessment": {
+    "Operations": {
+      "Backups & Recovery": 2,
+      "Patch Management": 3,
+      "Monitoring & Alerting": 2,
+      "Change Management": 1,
+      "Documentation": 3,
+      "Vendor Management": 2
+    },
+    "Users": {
+      "MFA Adoption": 3,
+      "Access Reviews": 1,
+      "Security Training": 2,
+      "Password Hygiene": 3,
+      "On/Offboarding": 2,
+      "Privileged Access": 1
+    },
+    "Devices": {
+      "Endpoint Protection": 3,
+      "Disk Encryption": 2,
+      "OS Compliance": 2,
+      "MDM / Policy": 1,
+      "Asset Inventory": 2,
+      "Local Admin Control": 1
+    }
+  },
+  "findings": [
+    ["High Risk", "Access Reviews are not performed on a defined schedule (Users: Access Reviews = 1)."],
+    ["High Risk", "Change Management is ad-hoc and not documented (Operations: Change Management = 1)."],
+    ["Quick Win", "Improve Monitoring & Alerting coverage for endpoints and key services (Operations: 2)."],
+    ["Quick Win", "Implement MDM baselines for device compliance and policy enforcement (Devices: 1)."]
+  ]
+}

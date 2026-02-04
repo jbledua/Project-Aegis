@@ -1,0 +1,12 @@
+# Ignore client-specific data files
+/data/client_data.json
+/data/*.secret.json
+
+# Keep sample file
+!data/client_data.sample.json
+
+# Ignore generated outputs
+/output/
+
+# Ignore local virtual environment
+/.venv/
