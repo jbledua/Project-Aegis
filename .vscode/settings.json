@@ -1,3 +1,4 @@
 {
-  "python.defaultInterpreterPath": "/home/jbledua/Documents/Projects/Project-Aegis/.venv/bin/python"
+  "python.defaultInterpreterPath": "/home/jbledua/Documents/Projects/Project-Aegis/.venv/bin/python",
+  "python-envs.pythonProjects": []
 }
