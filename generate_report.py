@@ -46,7 +46,8 @@ PAGE = {
 OUTPUT_PDF = "audit-report-mvp.pdf"
 CHART_DIR = "charts"
 OUTPUT_ROOT = "output"
-DATA_FILE = os.path.join("data", "client_data.json")
+# Use sample by default; can point to client_data.json when available
+DATA_FILE = os.path.join("data", "client_data.sample.json")
 
 
 # ----------------------------
@@ -54,37 +55,68 @@ DATA_FILE = os.path.join("data", "client_data.json")
 # ----------------------------
 # Scores: 0–5 where 5 = best
 DEFAULT_ASSESSMENT: Dict[str, Dict[str, int]] = {
+    # Defaults will be generated dynamically from canonical markdown definitions;
+    # these are only used as a fallback if markdown parsing fails.
     "Operations": {
-        "Backups & Recovery": 2,
-        "Patch Management": 3,
+        "Documentation & Knowledge Base": 2,
+        "Change Management": 2,
+        "Incident & Problem Management": 2,
         "Monitoring & Alerting": 2,
-        "Change Management": 1,
-        "Documentation": 3,
-        "Vendor Management": 2,
+        "Recovery Planning (RTO / RPO)": 2,
+        "Disaster Recovery Procedures & Testing": 2,
+        "Patch & Update Governance": 2,
+        "Asset Lifecycle Management": 2,
+        "Vendor & SaaS Governance": 2,
+        "Control Auditing & Evidence Collection": 2,
+        "Periodic Access & Configuration Reviews": 2,
+        "Policy Compliance & Attestation": 2,
+        "Third-Party & Security Review Readiness": 2,
     },
     "Users": {
-        "MFA Adoption": 3,
-        "Access Reviews": 1,
-        "Security Training": 2,
-        "Password Hygiene": 3,
-        "On/Offboarding": 2,
-        "Privileged Access": 1,
+        "User Account Lifecycle (Joiner / Mover / Leaver)": 2,
+        "Authentication Controls (MFA, Conditional Access)": 2,
+        "Privileged Access Management": 2,
+        "Access Reviews & Least Privilege": 2,
+        "Password Management (Password Manager Adoption)": 2,
+        "Microsoft 365 / Google Workspace Backup": 2,
+        "User Data Retention & Recovery": 2,
+        "Security Awareness Training": 2,
+        "Phishing & Social Engineering Defense": 2,
+        "Acceptable Use & IT Policies (User Awareness)": 2,
+        "User Support & Enablement": 2,
     },
     "Devices": {
-        "Endpoint Protection": 3,
+        "Endpoint Protection (AV / EDR)": 2,
         "Disk Encryption": 2,
-        "OS Compliance": 2,
-        "MDM / Policy": 1,
-        "Asset Inventory": 2,
-        "Local Admin Control": 1,
+        "OS & Application Compliance": 2,
+        "Endpoint Backups": 2,
+        "Endpoint Restore Testing": 2,
+        "Device Management Platform (MDM / RMM)": 2,
+        "Patch Enforcement (Devices)": 2,
+        "Local Admin Control": 2,
+        "Asset Inventory Accuracy": 2,
+        "BYOD & Personal Devices": 2,
+        "Device Lifecycle & Replacement": 2,
     },
 }
 
 DEFAULT_FINDINGS: List[Tuple[str, str]] = [
-    ("High Risk", "Access Reviews are not performed on a defined schedule (Users: Access Reviews = 1)."),
-    ("High Risk", "Change Management is ad-hoc and not documented (Operations: Change Management = 1)."),
-    ("Quick Win", "Improve Monitoring & Alerting coverage for endpoints and key services (Operations: 2)."),
-    ("Quick Win", "Implement MDM baselines for device compliance and policy enforcement (Devices: 1)."),
+    (
+        "High Risk",
+        "Access reviews and least privilege are not enforced on a defined schedule (Users: Access Reviews & Least Privilege).",
+    ),
+    (
+        "High Risk",
+        "Change Management is ad-hoc and not documented (Operations: Change Management).",
+    ),
+    (
+        "Quick Win",
+        "Improve Monitoring & Alerting coverage for endpoints and key services (Operations: Monitoring & Alerting).",
+    ),
+    (
+        "Quick Win",
+        "Implement MDM/RMM baselines for device compliance and policy enforcement (Devices: Device Management Platform).",
+    ),
 ]
 
 def load_client_data(path: str) -> Tuple[str, Dict[str, Dict[str, int]], List[Tuple[str, str]]]:
@@ -162,20 +194,143 @@ def save_radar_chart_png(radar: RadarData, out_path: str) -> None:
     ax.set_theta_direction(-1)
 
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(radar.labels, fontsize=8)
+    ax.set_xticklabels(radar.labels, fontsize=7)
 
     ax.set_ylim(0, radar.max_value)
+    # Keep grid rings but remove numeric labels; color background instead
     ax.set_yticks([1, 2, 3, 4, 5])
-    ax.set_yticklabels(["1", "2", "3", "4", "5"], fontsize=8)
+    ax.set_yticklabels([])
 
-    ax.plot(angles, values, linewidth=2)
-    ax.fill(angles, values, alpha=0.15)
+    # Discrete colored rings (1..5): 1=red, 3=yellow, 5=green
+    from matplotlib.colors import ListedColormap, BoundaryNorm
+    theta = np.linspace(0, 2 * np.pi, 360)
+    r_bg = np.linspace(0, radar.max_value, 200)
+    T, R = np.meshgrid(theta, r_bg)
+    Z = R
+    ring_edges = [0, 1, 2, 3, 4, 5]
+    ring_colors = [
+        "#CC0000",  # 0-1 (1)
+        "#FF7F00",  # 1-2 (2)
+        "#FFD400",  # 2-3 (3)
+        "#7AC943",  # 3-4 (4)
+        "#00A000",  # 4-5 (5)
+    ]
+    cmap = ListedColormap(ring_colors)
+    norm = BoundaryNorm(ring_edges, cmap.N)
+    ax.pcolormesh(T, R, Z, cmap=cmap, norm=norm, shading="auto", zorder=0)
+
+    ax.plot(angles, values, linewidth=2, zorder=2)
+    ax.fill(angles, values, alpha=0.15, zorder=1)
 
     ax.set_title(radar.title, fontsize=12, pad=16)
 
     fig.tight_layout()
     fig.savefig(out_path, transparent=False)
     plt.close(fig)
+
+
+# ----------------------------
+# Canonical categories parsing & assessment alignment
+# ----------------------------
+
+ALIASES: Dict[str, Dict[str, str]] = {
+    "Operations": {
+        "Backups & Recovery": "Disaster Recovery Procedures & Testing",
+        "Patch Management": "Patch & Update Governance",
+        "Monitoring & Alerting": "Monitoring & Alerting",
+        "Change Management": "Change Management",
+        "Documentation": "Documentation & Knowledge Base",
+        "Vendor Management": "Vendor & SaaS Governance",
+    },
+    "Users": {
+        "MFA Adoption": "Authentication Controls (MFA, Conditional Access)",
+        "Access Reviews": "Access Reviews & Least Privilege",
+        "Security Training": "Security Awareness Training",
+        "Password Hygiene": "Password Management (Password Manager Adoption)",
+        "On/Offboarding": "User Account Lifecycle (Joiner / Mover / Leaver)",
+        "Privileged Access": "Privileged Access Management",
+    },
+    "Devices": {
+        "Endpoint Protection": "Endpoint Protection (AV / EDR)",
+        "Disk Encryption": "Disk Encryption",
+        "OS Compliance": "OS & Application Compliance",
+        "MDM / Policy": "Device Management Platform (MDM / RMM)",
+        "Asset Inventory": "Asset Inventory Accuracy",
+        "Local Admin Control": "Local Admin Control",
+    },
+}
+
+
+def parse_canonical_categories(md_path: str) -> Dict[str, List[str]]:
+    """Parse the canonical categories/subcategories from the markdown document."""
+    categories: Dict[str, List[str]] = {}
+    if not os.path.exists(md_path):
+        return {k: list(v.keys()) for k, v in DEFAULT_ASSESSMENT.items()}
+
+    current: str | None = None
+    try:
+        with open(md_path, "r", encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if line.startswith("## ") and not line.startswith("###"):
+                    h2 = line[3:].strip()
+                    if h2 in ("Operations", "Users", "Devices"):
+                        current = h2
+                        categories[current] = []
+                    else:
+                        current = None
+                elif line.startswith("- ") and current:
+                    item = line[2:].strip()
+                    # Remove trailing double spaces commonly used in markdown for line breaks
+                    item = item.rstrip()
+                    categories[current].append(item)
+        # Deduplicate while preserving order
+        for k, lst in categories.items():
+            seen = set()
+            categories[k] = [x for x in lst if not (x in seen or seen.add(x))]
+    except Exception:
+        # Fallback to defaults on any parse error
+        return {k: list(v.keys()) for k, v in DEFAULT_ASSESSMENT.items()}
+    return categories
+
+
+def canonicalize_assessment(
+    assessment_raw: Dict[str, Dict[str, int]],
+    canonical: Dict[str, List[str]],
+    default_score: int = 2,
+) -> Dict[str, Dict[str, int]]:
+    """Map raw assessment data to canonical subcategories, filling gaps with a default score."""
+    result: Dict[str, Dict[str, int]] = {}
+
+    def norm(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+
+    for category in ("Operations", "Users", "Devices"):
+        subcats = canonical.get(category, [])
+        raw_cat = assessment_raw.get(category, {})
+        normalized_raw = {norm(k): v for k, v in raw_cat.items()}
+        alias_map = ALIASES.get(category, {})
+
+        mapped: Dict[str, int] = {}
+        for sc in subcats:
+            score = None
+            # Exact match
+            if sc in raw_cat:
+                score = raw_cat[sc]
+            else:
+                # Alias mapping
+                for old, new in alias_map.items():
+                    if new == sc and old in raw_cat:
+                        score = raw_cat[old]
+                        break
+                if score is None:
+                    # Normalized match
+                    ns = norm(sc)
+                    if ns in normalized_raw:
+                        score = normalized_raw[ns]
+            mapped[sc] = int(score if score is not None else default_score)
+        result[category] = mapped
+    return result
 
 
 # ----------------------------
@@ -349,7 +504,14 @@ def generate_pdf(client_name: str, chart_paths: Dict[str, str], assessment: Dict
 
 
 def main() -> None:
-    client_name, assessment, findings = load_client_data(DATA_FILE)
+    client_name, assessment_raw, findings = load_client_data(DATA_FILE)
+
+    # Parse canonical categories/subcategories from markdown
+    md_path = os.path.join(os.path.dirname(__file__), "aegis-categories-v1.md")
+    canonical = parse_canonical_categories(md_path)
+
+    # Align assessment to canonical subcategories; fill gaps with default score
+    assessment = canonicalize_assessment(assessment_raw, canonical, default_score=2)
 
     # Client-specific output directory
     client_slug = slugify(client_name)
